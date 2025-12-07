@@ -4,7 +4,7 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 <p align="center">
-  <img src="assets/demo.gif" alt="Bible CLI Demo" height="400" weight="400">
+  <img src="assets/demo.gif" alt="Bible CLI Demo" height="500" weight="500">
 </p>
 
 **Bible CLI** is a fast, interactive, and modular command-line interface for reading and searching the Bible. Built with Go, it offers a Unix-like shell experience (`cd`, `cat`, `ls`, `grep`) to navigate Scripture directly from your terminal.
