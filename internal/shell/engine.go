@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -108,11 +110,12 @@ func (e *Engine) RunCommand(input string) {
 	case "marks":
 		e.listBookmarks()
 	case "manna", "random":
-		e.doRandom()
+		shouldSpeak := strings.Contains(args, "-s") || strings.Contains(args, "--speak")
+		e.doRandom(shouldSpeak)
 	case "stats":
 		e.doStats()
 	case "version", "--version", "-v":
-		fmt.Printf("Bible CLI %sv1.2.0%s\n", ui.ColorGreen, ui.ColorReset)
+		fmt.Printf("Bible CLI %sv1.3.0%s\n", ui.ColorGreen, ui.ColorReset)
 	case "help":
 		e.printHelp()
 	case "clear", "cls":
@@ -613,7 +616,7 @@ func (e *Engine) saveHistory() {
 	copy(e.PrevPath, e.Path)
 }
 
-func (e *Engine) doRandom() {
+func (e *Engine) doRandom(speak bool) {
 	testaments := []string{"OT", "NT"}
 	tKey := testaments[rand.Intn(2)]
 	var tMap model.Testament
@@ -634,7 +637,35 @@ func (e *Engine) doRandom() {
 	vs := ui.GetSortedKeys(ch)
 	vKey := vs[rand.Intn(len(vs))]
 
-	fmt.Printf("\n%s[Random] %s %s:%s%s\n%s%s%s\n\n", ui.ColorCyan, bKey, cKey, vKey, ui.ColorReset, ui.ColorBold, ch[vKey], ui.ColorReset)
+	verseText := ch[vKey]
+	fmt.Printf("\n%s[Random] %s %s:%s%s\n%s%s%s\n\n", ui.ColorCyan, bKey, cKey, vKey, ui.ColorReset, ui.ColorBold, verseText, ui.ColorReset)
+
+	if speak {
+		narrate := fmt.Sprintf("%s chapter %s verse %s. %s", bKey, cKey, vKey, verseText)
+		e.speak(narrate)
+	}
+}
+
+func (e *Engine) speak(text string) {
+	var cmd *exec.Cmd
+
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("say", text)
+	case "windows":
+		// PowerShell speech synthesis
+		psCmd := fmt.Sprintf("Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('%s')", strings.ReplaceAll(text, "'", "''"))
+		cmd = exec.Command("powershell", "-Command", psCmd)
+	case "linux":
+		// Try espeak if available
+		cmd = exec.Command("espeak", text)
+	default:
+		return
+	}
+
+	if cmd != nil {
+		_ = cmd.Start() // Start asynchronously so it doesn't block the shell
+	}
 }
 
 func (e *Engine) doStats() {
@@ -699,7 +730,7 @@ func (e *Engine) printHelp() {
 	fmt.Printf("  %smarks%s               List all saved bookmarks\n", ui.ColorGreen, ui.ColorReset)
 
 	fmt.Println(ui.ColorBlue + "\n✨ OTHER" + ui.ColorReset)
-	fmt.Printf("  %smanna%s               Display a random verse\n", ui.ColorGreen, ui.ColorReset)
+	fmt.Printf("  %smanna%s               Display a random verse %s(-s to hear it)%s\n", ui.ColorGreen, ui.ColorReset, ui.ColorGray, ui.ColorReset)
 	fmt.Printf("  %sstats%s               Show Bible statistics\n", ui.ColorGreen, ui.ColorReset)
 	fmt.Printf("  %sversion%s             Show version information\n", ui.ColorGreen, ui.ColorReset)
 	fmt.Printf("  %sclear%s               Clear the terminal screen\n", ui.ColorGreen, ui.ColorReset)
