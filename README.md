@@ -156,6 +156,13 @@ Contributions are welcome\!
 4.  Push to the Branch (`git push origin feature/AmazingFeature`)
 5.  Open a Pull Request
 
+## 📚 Data Sources
+
+The Scripture data used in this project is sourced and processed from:
+* **JSON Bible:** [thiagobodruk/bible](https://github.com/thiagobodruk/bible) (KJV Version).
+
+The raw data is scrubbed and reformatted using the included `ingest.go` script to ensure clean output and consistent terminal formatting.
+
 -----
 
 ## 📄 License
