@@ -50,8 +50,18 @@ func (e *Engine) RunCommand(input string) {
 		args = strings.Join(parts[1:], " ")
 	}
 
+	// Farewell messages for exit
+	farewells := []string{
+		"God bless! 🙏",
+		"Go in peace! ✝️",
+		"The Lord be with you! 📖",
+		"Grace and peace! 🕊️",
+		"Walk in the light! ✨",
+	}
+
 	switch cmd {
 	case "exit", "quit":
+		fmt.Printf("\n%s%s%s\n\n", ui.ColorCyan, farewells[rand.Intn(len(farewells))], ui.ColorReset)
 		os.Exit(0)
 	case "ls", "ll":
 		e.doLS()
@@ -480,10 +490,8 @@ func (e *Engine) doGrep(query string) {
 			text := ch[vKey]
 			if strings.Contains(strings.ToLower(text), query) {
 				count++
-				lowerText := strings.ToLower(text)
-				idx := strings.Index(lowerText, query)
-				highlighted := text[:idx] + ui.ColorRed + text[idx:idx+len(query)] + ui.ColorReset + text[idx+len(query):]
-
+				// Highlight ALL occurrences (case-insensitive)
+				highlighted := highlightAll(text, query)
 				fmt.Printf("%s[%s %s:%s] %s%s\n", ui.ColorCyan, bName, cName, vKey, ui.ColorReset, highlighted)
 			}
 		}
@@ -627,24 +635,47 @@ func (e *Engine) doRandom() {
 
 func (e *Engine) printHelp() {
 	fmt.Println()
-	fmt.Println(ui.ColorCyan + "═══ BIBLE SHELL MANUAL v1.0 ═══" + ui.ColorReset)
-	fmt.Println(ui.ColorBlue + "\n[ NAVIGATION ]" + ui.ColorReset)
-	fmt.Printf("  %scd <book>%s        Teleport (e.g. 'cd rom', 'cd 1 cor')\n", ui.ColorGreen, ui.ColorReset)
-	fmt.Printf("  %scd <chapter>%s     Enter chapter (e.g. 'cd 1')\n", ui.ColorGreen, ui.ColorReset)
-	fmt.Printf("  %scd ..%s            Go back one level\n", ui.ColorGreen, ui.ColorReset)
-	fmt.Printf("  %scd -%s             Jump to previous location (Undo)\n", ui.ColorGreen, ui.ColorReset)
-	fmt.Println(ui.ColorBlue + "\n[ READING ]" + ui.ColorReset)
-	fmt.Printf("  %scat <ref>%s        Read (e.g. 'cat 3:16', '3:16-18')\n", ui.ColorGreen, ui.ColorReset)
-	fmt.Printf("  %scat <book...>%s    Quick read (e.g. 'cat john 3:16')\n", ui.ColorGreen, ui.ColorReset)
-	fmt.Println(ui.ColorBlue + "\n[ MEMORY ]" + ui.ColorReset)
-	fmt.Printf("  %smark <name>%s      Save current spot\n", ui.ColorGreen, ui.ColorReset)
-	fmt.Printf("  %sgoto <name>%s      Jump to saved spot\n", ui.ColorGreen, ui.ColorReset)
-	fmt.Printf("  %smarks%s            List all bookmarks\n", ui.ColorGreen, ui.ColorReset)
-	fmt.Println(ui.ColorBlue + "\n[ TOOLS ]" + ui.ColorReset)
-	fmt.Printf("  %sgrep <word>%s      Search contextually\n", ui.ColorGreen, ui.ColorReset)
-	fmt.Printf("  %smanna%s            Random verse\n", ui.ColorGreen, ui.ColorReset)
-	fmt.Printf("  %sclear%s            Clear screen\n", ui.ColorGreen, ui.ColorReset)
-	fmt.Printf("  %sexit%s             Quit\n", ui.ColorGreen, ui.ColorReset)
+	fmt.Println(ui.ColorCyan + "╔══════════════════════════════════════════════════════════════╗")
+	fmt.Println("║                    BIBLE CLI — HELP                          ║")
+	fmt.Println("╚══════════════════════════════════════════════════════════════╝" + ui.ColorReset)
+
+	fmt.Println(ui.ColorBlue + "\n📂 NAVIGATION" + ui.ColorReset)
+	fmt.Printf("  %sls%s                  List books or chapters in current location\n", ui.ColorGreen, ui.ColorReset)
+	fmt.Printf("  %scd <book>%s           Jump to a book %s(fuzzy: 'cd jn' → John)%s\n", ui.ColorGreen, ui.ColorReset, ui.ColorGray, ui.ColorReset)
+	fmt.Printf("  %scd <chapter>%s        Enter a chapter %s(e.g. 'cd 3')%s\n", ui.ColorGreen, ui.ColorReset, ui.ColorGray, ui.ColorReset)
+	fmt.Printf("  %scd ..%s               Go up one level\n", ui.ColorGreen, ui.ColorReset)
+	fmt.Printf("  %scd /%s                Return to root\n", ui.ColorGreen, ui.ColorReset)
+	fmt.Printf("  %scd -%s                Go to previous location (undo)\n", ui.ColorGreen, ui.ColorReset)
+
+	fmt.Println(ui.ColorBlue + "\n📖 READING" + ui.ColorReset)
+	fmt.Printf("  %scat%s                 Read current chapter\n", ui.ColorGreen, ui.ColorReset)
+	fmt.Printf("  %scat <ref>%s           Read verses %s(e.g. 'cat 3:16', 'cat 3:16-18')%s\n", ui.ColorGreen, ui.ColorReset, ui.ColorGray, ui.ColorReset)
+	fmt.Printf("  %scat <book> <ref>%s    Quick read without navigating\n", ui.ColorGreen, ui.ColorReset)
+	fmt.Printf("                       %s(e.g. 'cat ps 23', 'cat rom 8:28')%s\n", ui.ColorGray, ui.ColorReset)
+	fmt.Printf("  %scat ... + ...%s       Read multiple references\n", ui.ColorGreen, ui.ColorReset)
+	fmt.Printf("                       %s(e.g. 'cat gen 1:1 + jn 1:1')%s\n", ui.ColorGray, ui.ColorReset)
+
+	fmt.Println(ui.ColorBlue + "\n🔍 SEARCH" + ui.ColorReset)
+	fmt.Printf("  %sgrep <word>%s         Search in current scope\n", ui.ColorGreen, ui.ColorReset)
+	fmt.Printf("                       %s• At root: searches entire Bible%s\n", ui.ColorGray, ui.ColorReset)
+	fmt.Printf("                       %s• In OT/NT: searches that testament%s\n", ui.ColorGray, ui.ColorReset)
+	fmt.Printf("                       %s• In a book: searches only that book%s\n", ui.ColorGray, ui.ColorReset)
+
+	fmt.Println(ui.ColorBlue + "\n🔖 BOOKMARKS" + ui.ColorReset)
+	fmt.Printf("  %smark <name>%s         Save current location as a bookmark\n", ui.ColorGreen, ui.ColorReset)
+	fmt.Printf("  %sgoto <name>%s         Jump to a saved bookmark\n", ui.ColorGreen, ui.ColorReset)
+	fmt.Printf("  %smarks%s               List all saved bookmarks\n", ui.ColorGreen, ui.ColorReset)
+
+	fmt.Println(ui.ColorBlue + "\n✨ OTHER" + ui.ColorReset)
+	fmt.Printf("  %smanna%s               Display a random verse\n", ui.ColorGreen, ui.ColorReset)
+	fmt.Printf("  %sclear%s               Clear the terminal screen\n", ui.ColorGreen, ui.ColorReset)
+	fmt.Printf("  %shelp%s                Show this help message\n", ui.ColorGreen, ui.ColorReset)
+	fmt.Printf("  %sexit%s                Quit the application\n", ui.ColorGreen, ui.ColorReset)
+
+	fmt.Println()
+	fmt.Println(ui.ColorGray + "─────────────────────────────────────────────────────────────────")
+	fmt.Println("  Tip: You can also run commands directly: ./bible cat john 3:16")
+	fmt.Println("─────────────────────────────────────────────────────────────────" + ui.ColorReset)
 	fmt.Println()
 }
 
@@ -654,4 +685,36 @@ func isNumeric(s string) bool {
 	}
 	_, err := strconv.Atoi(string(s[0]))
 	return err == nil
+}
+
+// highlightAll highlights all case-insensitive occurrences of query in text
+func highlightAll(text, query string) string {
+	lowerText := strings.ToLower(text)
+	lowerQuery := strings.ToLower(query)
+
+	var result strings.Builder
+	lastEnd := 0
+
+	for {
+		idx := strings.Index(lowerText[lastEnd:], lowerQuery)
+		if idx == -1 {
+			result.WriteString(text[lastEnd:])
+			break
+		}
+
+		// Absolute index in original string
+		absIdx := lastEnd + idx
+
+		// Write text before match
+		result.WriteString(text[lastEnd:absIdx])
+
+		// Write highlighted match (preserving original case)
+		result.WriteString(ui.ColorYellow + ui.ColorBold)
+		result.WriteString(text[absIdx : absIdx+len(query)])
+		result.WriteString(ui.ColorReset)
+
+		lastEnd = absIdx + len(query)
+	}
+
+	return result.String()
 }

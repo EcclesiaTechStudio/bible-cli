@@ -52,6 +52,14 @@ To use the `bible` command anywhere in your terminal:
 go install github.com/EcclesiaTechStudio/bible-cli@latest
 ```
 
+### Download Binaries
+
+If you don't have Go installed, you can download the latest pre-built binaries for your platform from the [Releases Page](https://github.com/EcclesiaTechStudio/bible-cli/releases). 
+
+1. Download the archive for your OS (Mac, Windows, or Linux).
+2. Extract the `bible` binary.
+3. Move it to a folder in your `PATH` (e.g., `/usr/local/bin` on Mac/Linux).
+
 -----
 
 ## 🎮 Usage Guide
