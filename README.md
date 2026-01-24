@@ -44,13 +44,15 @@ go build -o bible main.go
 ./bible
 ```
 
-### Install Globally
+### Homebrew (Recommended for Mac)
 
-To use the `bible` command anywhere in your terminal:
+To install and keep `bible` updated easily:
 
 ```bash
-go install github.com/EcclesiaTechStudio/bible-cli@latest
+brew install EcclesiaTechStudio/tap/bible
 ```
+
+### Install Globally (Go)
 
 ### Download Binaries
 

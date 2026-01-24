@@ -38,12 +38,18 @@ changelog:
       - '^docs:'
       - '^test:'
 
-# Optional: Adding Homebrew tap configuration if user has one
-# brews:
-#   - repository:
-#       owner: EcclesiaTechStudio
-#       name: homebrew-tap
-#     homepage: https://github.com/EcclesiaTechStudio/bible-cli
-#     description: Fast, interactive Bible CLI for the terminal.
-#     install: |
-#       bin.install "bible"
+# Homebrew Tap configuration
+brews:
+  - name: bible
+    repository:
+      owner: EcclesiaTechStudio
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: https://github.com/EcclesiaTechStudio/bible-cli
+    description: "Fast, interactive Bible CLI for the terminal."
+    license: "MIT"
+    install: |
+      bin.install "bible"
+    test: |
+      system "#{bin}/bible", "--help"
