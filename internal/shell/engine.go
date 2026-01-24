@@ -109,6 +109,10 @@ func (e *Engine) RunCommand(input string) {
 		e.listBookmarks()
 	case "manna", "random":
 		e.doRandom()
+	case "stats":
+		e.doStats()
+	case "version", "--version", "-v":
+		fmt.Printf("Bible CLI %sv1.2.0%s\n", ui.ColorGreen, ui.ColorReset)
 	case "help":
 		e.printHelp()
 	case "clear", "cls":
@@ -633,6 +637,34 @@ func (e *Engine) doRandom() {
 	fmt.Printf("\n%s[Random] %s %s:%s%s\n%s%s%s\n\n", ui.ColorCyan, bKey, cKey, vKey, ui.ColorReset, ui.ColorBold, ch[vKey], ui.ColorReset)
 }
 
+func (e *Engine) doStats() {
+	otBooks := len(e.DB.OT)
+	ntBooks := len(e.DB.NT)
+
+	totalChapters := 0
+	totalVerses := 0
+
+	countStats := func(t model.Testament) {
+		for _, book := range t {
+			totalChapters += len(book)
+			for _, chapter := range book {
+				totalVerses += len(chapter)
+			}
+		}
+	}
+
+	countStats(e.DB.OT)
+	countStats(e.DB.NT)
+
+	fmt.Println()
+	fmt.Println(ui.ColorCyan + "📊 BIBLE STATISTICS" + ui.ColorReset)
+	fmt.Printf("  %sBooks:%s       %d (39 OT, 27 NT)\n", ui.ColorBlue, ui.ColorReset, otBooks+ntBooks)
+	fmt.Printf("  %sChapters:%s    %d\n", ui.ColorBlue, ui.ColorReset, totalChapters)
+	fmt.Printf("  %sVerses:%s      %d\n", ui.ColorBlue, ui.ColorReset, totalVerses)
+	fmt.Printf("  %sVersion:%s     KJV (King James Version)\n", ui.ColorBlue, ui.ColorReset)
+	fmt.Println()
+}
+
 func (e *Engine) printHelp() {
 	fmt.Println()
 	fmt.Println(ui.ColorCyan + "╔══════════════════════════════════════════════════════════════╗")
@@ -668,6 +700,8 @@ func (e *Engine) printHelp() {
 
 	fmt.Println(ui.ColorBlue + "\n✨ OTHER" + ui.ColorReset)
 	fmt.Printf("  %smanna%s               Display a random verse\n", ui.ColorGreen, ui.ColorReset)
+	fmt.Printf("  %sstats%s               Show Bible statistics\n", ui.ColorGreen, ui.ColorReset)
+	fmt.Printf("  %sversion%s             Show version information\n", ui.ColorGreen, ui.ColorReset)
 	fmt.Printf("  %sclear%s               Clear the terminal screen\n", ui.ColorGreen, ui.ColorReset)
 	fmt.Printf("  %shelp%s                Show this help message\n", ui.ColorGreen, ui.ColorReset)
 	fmt.Printf("  %sexit%s                Quit the application\n", ui.ColorGreen, ui.ColorReset)

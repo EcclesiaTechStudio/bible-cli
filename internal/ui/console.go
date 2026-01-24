@@ -21,7 +21,7 @@ const (
 func PrintHeader() {
 	fmt.Print("\033[H\033[2J")
 	fmt.Println(ColorCyan + "╔══════════════════════════════════════╗")
-	fmt.Println("║            BIBLE CLI v1.0            ║")
+	fmt.Println("║            BIBLE CLI v1.2            ║")
 	fmt.Println("╚══════════════════════════════════════╝" + ColorReset)
 	fmt.Println(ColorGray + "Type " + ColorGreen + "help" + ColorGray + " to see all commands.")
 	fmt.Println(ColorGray + "Type " + ColorGreen + "manna" + ColorGray + " for a random verse.")
