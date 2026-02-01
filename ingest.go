@@ -30,7 +30,10 @@ func main() {
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to read response body: %v", err))
+	}
 
 	// Remove invisible start bytes
 	body = bytes.TrimPrefix(body, []byte("\xef\xbb\xbf"))
@@ -84,8 +87,13 @@ func main() {
 	}
 
 	fmt.Println("Saving to clean data.json...")
-	file, _ := json.MarshalIndent(targetData, "", "  ")
-	_ = os.WriteFile("data.json", file, 0644)
+	file, err := json.MarshalIndent(targetData, "", "  ")
+	if err != nil {
+		panic(fmt.Sprintf("Failed to marshal JSON: %v", err))
+	}
+	if err := os.WriteFile("data.json", file, 0644); err != nil {
+		panic(fmt.Sprintf("Failed to write data.json: %v", err))
+	}
 
 	fmt.Println("Done! Your bible text is now scrubbed and clean.")
 }

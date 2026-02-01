@@ -264,3 +264,161 @@ func TestInvalidRange(t *testing.T) {
 		t.Errorf("Expected 'Invalid range' error, got:\n%s", output)
 	}
 }
+
+func TestEdgeCases(t *testing.T) {
+	db := getMockDB()
+	engine := New(db)
+
+	t.Run("Empty command", func(t *testing.T) {
+		// Empty command should do nothing (not crash)
+		engine.RunCommand("")
+		engine.RunCommand("   ")
+	})
+
+	t.Run("Empty bookmark name", func(t *testing.T) {
+		engine.Path = []string{"NT", "John"}
+		output := testutils.CaptureOutput(func() {
+			engine.saveBookmark("")
+		})
+		if !strings.Contains(output, "cannot be empty") {
+			t.Error("Should reject empty bookmark name")
+		}
+	})
+
+	t.Run("Whitespace-only bookmark name", func(t *testing.T) {
+		engine.Path = []string{"NT", "John"}
+		output := testutils.CaptureOutput(func() {
+			engine.saveBookmark("   ")
+		})
+		if !strings.Contains(output, "cannot be empty") {
+			t.Error("Should reject whitespace-only bookmark name")
+		}
+	})
+
+	t.Run("Reserved bookmark name", func(t *testing.T) {
+		engine.Path = []string{"NT", "John"}
+		output := testutils.CaptureOutput(func() {
+			engine.saveBookmark("cd")
+		})
+		if !strings.Contains(output, "reserved command name") {
+			t.Error("Should reject reserved command name as bookmark")
+		}
+	})
+
+	t.Run("Long bookmark name", func(t *testing.T) {
+		engine.Path = []string{"NT", "John"}
+		longName := strings.Repeat("a", 51)
+		output := testutils.CaptureOutput(func() {
+			engine.saveBookmark(longName)
+		})
+		if !strings.Contains(output, "too long") {
+			t.Error("Should reject bookmark name > 50 chars")
+		}
+	})
+
+	t.Run("Empty search query", func(t *testing.T) {
+		output := testutils.CaptureOutput(func() {
+			engine.doGrep("")
+		})
+		if !strings.Contains(output, "cannot be empty") {
+			t.Error("Should reject empty search query")
+		}
+	})
+
+	t.Run("Single character search warning", func(t *testing.T) {
+		output := testutils.CaptureOutput(func() {
+			engine.doGrep("a")
+		})
+		if !strings.Contains(output, "Warning") {
+			t.Error("Should warn about single character search")
+		}
+	})
+
+	t.Run("Long search query", func(t *testing.T) {
+		longQuery := strings.Repeat("search", 20)
+		output := testutils.CaptureOutput(func() {
+			engine.doGrep(longQuery)
+		})
+		if !strings.Contains(output, "too long") {
+			t.Error("Should reject search query > 100 chars")
+		}
+	})
+
+	t.Run("Goto non-existent bookmark", func(t *testing.T) {
+		output := testutils.CaptureOutput(func() {
+			engine.goToBookmark("nonexistent")
+		})
+		if !strings.Contains(output, "not found") {
+			t.Error("Should show error for non-existent bookmark")
+		}
+	})
+
+	t.Run("Unknown command", func(t *testing.T) {
+		output := testutils.CaptureOutput(func() {
+			engine.RunCommand("unknowncmd")
+		})
+		if !strings.Contains(output, "not found") {
+			t.Error("Should show error for unknown command")
+		}
+	})
+}
+
+func TestRangeEdgeCases(t *testing.T) {
+	db := getMockDB()
+	engine := New(db)
+	engine.Path = []string{"NT", "John"}
+
+	tests := []struct {
+		name          string
+		rangeArg      string
+		shouldContain string
+	}{
+		{
+			name:          "Valid single verse",
+			rangeArg:      "3:16",
+			shouldContain: "For God so loved",
+		},
+		{
+			name:          "Reversed range",
+			rangeArg:      "3:20-10",
+			shouldContain: "invalid range",
+		},
+		{
+			name:          "Negative verse number",
+			rangeArg:      "3:-1",
+			shouldContain: "Invalid range",
+		},
+		{
+			name:          "Zero verse number",
+			rangeArg:      "3:0",
+			shouldContain: "Verse 0 not found",
+		},
+		{
+			name:          "Too many range parts",
+			rangeArg:      "3:16-17-18",
+			shouldContain: "Invalid range format",
+		},
+		{
+			name:          "Non-numeric range",
+			rangeArg:      "3:abc",
+			shouldContain: "Verse abc not found",
+		},
+		{
+			name:          "Large range",
+			rangeArg:      "3:1-200",
+			shouldContain: "range too large",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := testutils.CaptureOutput(func() {
+				engine.handleSmartCat(tt.rangeArg)
+			})
+
+			if !strings.Contains(output, tt.shouldContain) {
+				t.Errorf("Expected output to contain '%s', got:\n%s", tt.shouldContain, output)
+			}
+		})
+	}
+}

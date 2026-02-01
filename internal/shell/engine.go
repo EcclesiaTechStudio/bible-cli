@@ -1,3 +1,7 @@
+// Package shell implements the interactive shell engine for the Bible CLI.
+// It provides a Unix-like navigation system for browsing the Bible with commands
+// like cd, ls, cat, grep, and bookmark management. The shell maintains navigation
+// state and handles all user commands.
 package shell
 
 import (
@@ -14,14 +18,25 @@ import (
 	"github.com/EcclesiaTechStudio/bible-cli/internal/ui"
 )
 
+// Engine is the core shell engine that manages navigation state and command execution.
+// It maintains the current path within the Bible hierarchy, bookmark state, and
+// provides an index for fast book lookups.
 type Engine struct {
-	DB        *model.Bible
-	Path      []string
-	PrevPath  []string
-	BookIndex map[string]string
-	Bookmarks map[string]string
+	DB        *model.Bible          // The complete Bible database
+	Path      []string              // Current navigation path (e.g., ["NT", "John", "3"])
+	PrevPath  []string              // Previous path for "cd -" functionality
+	BookIndex map[string]string     // Fuzzy lookup index mapping abbreviations to full paths
+	Bookmarks map[string]string     // User-saved bookmarks mapping names to paths
 }
 
+// New creates and initializes a new shell Engine with the provided Bible database.
+// It builds the book index for fuzzy matching and loads any saved bookmarks from disk.
+//
+// Parameters:
+//   - db: The Bible database to use for navigation and search
+//
+// Returns:
+//   - *Engine: A fully initialized engine ready to process commands
 func New(db *model.Bible) *Engine {
 	e := &Engine{
 		DB:        db,
@@ -34,18 +49,52 @@ func New(db *model.Bible) *Engine {
 	return e
 }
 
-// GetPathString returns the string for the prompt
+// GetPathString returns the current path as a formatted string for display in the prompt.
+// The path is formatted as a Unix-style path starting with "/".
+//
+// Examples:
+//   - Empty path → "/"
+//   - ["OT"] → "/OT"
+//   - ["NT", "John", "3"] → "/NT/John/3"
 func (e *Engine) GetPathString() string {
 	return "/" + strings.Join(e.Path, "/")
 }
 
 // --- COMMAND ROUTING ---
 
+// RunCommand processes a user command and executes the appropriate action.
+// It handles all shell commands including navigation (cd, ls), reading (cat),
+// searching (grep), bookmarks (mark, goto, marks), and utility commands
+// (help, version, stats, clear, exit).
+//
+// The function parses the input into command and arguments, then dispatches
+// to the appropriate handler. Empty or whitespace-only input is ignored.
+//
+// Parameters:
+//   - input: The raw user input string to parse and execute
+//
+// Supported commands:
+//   - exit, quit: Exit the application
+//   - ls, ll: List contents at current path
+//   - cd: Change directory/navigate
+//   - cat, read: Read verses or chapters
+//   - grep, search: Search for text
+//   - mark: Save a bookmark
+//   - goto, jump: Navigate to a bookmark
+//   - marks: List all bookmarks
+//   - manna, random: Display random verse
+//   - stats: Show Bible statistics
+//   - version, --version, -v: Show version
+//   - help: Show help text
+//   - clear, cls: Clear screen
 func (e *Engine) RunCommand(input string) {
 	if input == "" {
 		return
 	}
 	parts := strings.Fields(input)
+	if len(parts) == 0 {
+		return
+	}
 	cmd := strings.ToLower(parts[0])
 	args := ""
 	if len(parts) > 1 {
@@ -290,6 +339,33 @@ func (e *Engine) tryTeleport(target string) bool {
 
 // --- READING (CAT) ---
 
+// validateVerseRange checks if a verse range is valid.
+// It ensures start and end are positive, properly ordered, and not too large.
+//
+// Validation rules:
+//   - Start must be >= 1
+//   - End must be >= start
+//   - Range size must not exceed 100 verses
+//
+// Parameters:
+//   - start: The starting verse number
+//   - end: The ending verse number
+//
+// Returns:
+//   - error: Non-nil if validation fails, describing the specific issue
+func validateVerseRange(start, end int) error {
+	if start < 1 {
+		return fmt.Errorf("verse numbers must be >= 1")
+	}
+	if end < start {
+		return fmt.Errorf("invalid range: end (%d) must be >= start (%d)", end, start)
+	}
+	if end-start+1 > 100 {
+		return fmt.Errorf("range too large (max 100 verses), requested %d verses", end-start+1)
+	}
+	return nil
+}
+
 func (e *Engine) handleSmartCat(args string) {
 	if args == "" {
 		e.doCat("")
@@ -401,11 +477,20 @@ func (e *Engine) doCat(arg string) {
 
 		if strings.Contains(seg, "-") {
 			rangeParts := strings.Split(seg, "-")
+			if len(rangeParts) != 2 {
+				fmt.Printf("%sInvalid range format: %s (use format like '16-18')%s\n", ui.ColorRed, seg, ui.ColorReset)
+				continue
+			}
 			start, err1 := strconv.Atoi(rangeParts[0])
 			end, err2 := strconv.Atoi(rangeParts[1])
 
 			if err1 != nil || err2 != nil {
-				fmt.Printf("%sInvalid range: %s%s\n", ui.ColorRed, seg, ui.ColorReset)
+				fmt.Printf("%sInvalid range: %s (numbers required)%s\n", ui.ColorRed, seg, ui.ColorReset)
+				continue
+			}
+
+			if err := validateVerseRange(start, end); err != nil {
+				fmt.Printf("%s%v%s\n", ui.ColorRed, err, ui.ColorReset)
 				continue
 			}
 
@@ -486,7 +571,32 @@ func (e *Engine) renderChapter(cNum string, ch model.Chapter) {
 
 // --- SEARCH ---
 
+// doGrep performs a context-aware search for the given query string.
+// The search scope depends on the current path:
+//   - At root: searches entire Bible
+//   - In OT/NT: searches that testament
+//   - In a book: searches only that book
+//   - In a chapter: searches only that chapter
+//
+// The search is case-insensitive and highlights all matching occurrences.
+//
+// Parameters:
+//   - query: The text to search for (validated for length and emptiness)
 func (e *Engine) doGrep(query string) {
+	// Validate query
+	query = strings.TrimSpace(query)
+	if query == "" {
+		fmt.Printf("%sError: Search query cannot be empty%s\n", ui.ColorRed, ui.ColorReset)
+		return
+	}
+	if len(query) > 100 {
+		fmt.Printf("%sError: Search query too long (max 100 characters)%s\n", ui.ColorRed, ui.ColorReset)
+		return
+	}
+	if len(query) == 1 {
+		fmt.Printf("%s⚠️  Warning: Single character search may return many results%s\n", ui.ColorYellow, ui.ColorReset)
+	}
+
 	query = strings.ToLower(strings.ReplaceAll(query, "\"", ""))
 	fmt.Printf("%sSearching for '%s'...%s\n", ui.ColorGray, query, ui.ColorReset)
 	count := 0
@@ -542,13 +652,53 @@ func (e *Engine) doGrep(query string) {
 
 // --- BOOKMARKS ---
 
+// saveBookmark saves the current path as a bookmark with the given name.
+// Bookmarks are persisted to disk in ~/.bible_bookmarks JSON file.
+//
+// Validation rules:
+//   - Name cannot be empty (after trimming whitespace)
+//   - Name cannot exceed 50 characters
+//   - Name cannot be a reserved command name
+//
+// Parameters:
+//   - name: The name to assign to this bookmark
 func (e *Engine) saveBookmark(name string) {
+	// Validate bookmark name
+	name = strings.TrimSpace(name)
+	if name == "" {
+		fmt.Printf("%sError: Bookmark name cannot be empty%s\n", ui.ColorRed, ui.ColorReset)
+		return
+	}
+	if len(name) > 50 {
+		fmt.Printf("%sError: Bookmark name too long (max 50 characters)%s\n", ui.ColorRed, ui.ColorReset)
+		return
+	}
+
+	// Check for reserved command names
+	reservedNames := []string{
+		"ls", "ll", "cd", "cat", "read", "grep", "search",
+		"mark", "goto", "jump", "marks", "manna", "random",
+		"stats", "version", "help", "clear", "cls", "exit", "quit",
+	}
+	lowerName := strings.ToLower(name)
+	for _, reserved := range reservedNames {
+		if lowerName == reserved {
+			fmt.Printf("%sError: '%s' is a reserved command name, choose a different bookmark name%s\n", ui.ColorRed, name, ui.ColorReset)
+			return
+		}
+	}
+
 	pathStr := "/" + strings.Join(e.Path, "/")
 	e.Bookmarks[name] = pathStr
 	e.persistBookmarks()
 	fmt.Printf("%sMarked '%s' at %s%s\n", ui.ColorGreen, name, pathStr, ui.ColorReset)
 }
 
+// goToBookmark navigates to a previously saved bookmark location.
+// If the bookmark doesn't exist, displays an error message.
+//
+// Parameters:
+//   - name: The name of the bookmark to navigate to
 func (e *Engine) goToBookmark(name string) {
 	if target, ok := e.Bookmarks[name]; ok {
 		e.saveHistory()
@@ -563,6 +713,8 @@ func (e *Engine) goToBookmark(name string) {
 	}
 }
 
+// listBookmarks displays all saved bookmarks with their paths.
+// Shows a message if no bookmarks have been saved yet.
 func (e *Engine) listBookmarks() {
 	fmt.Println(ui.ColorCyan + "══ Saved Bookmarks ══" + ui.ColorReset)
 	if len(e.Bookmarks) == 0 {
@@ -574,8 +726,14 @@ func (e *Engine) listBookmarks() {
 }
 
 func (e *Engine) persistBookmarks() {
-	data, _ := json.MarshalIndent(e.Bookmarks, "", "  ")
-	os.WriteFile(e.getBookmarkFile(), data, 0644)
+	data, err := json.MarshalIndent(e.Bookmarks, "", "  ")
+	if err != nil {
+		fmt.Printf("%s⚠️  Warning: Failed to encode bookmarks: %v%s\n", ui.ColorYellow, err, ui.ColorReset)
+		return
+	}
+	if err := os.WriteFile(e.getBookmarkFile(), data, 0644); err != nil {
+		fmt.Printf("%s⚠️  Warning: Failed to save bookmarks: %v%s\n", ui.ColorYellow, err, ui.ColorReset)
+	}
 }
 
 func (e *Engine) getBookmarkFile() string {
@@ -590,7 +748,10 @@ func (e *Engine) loadBookmarks() {
 	e.Bookmarks = make(map[string]string)
 	data, err := os.ReadFile(e.getBookmarkFile())
 	if err == nil {
-		json.Unmarshal(data, &e.Bookmarks)
+		if err := json.Unmarshal(data, &e.Bookmarks); err != nil {
+			fmt.Printf("%s⚠️  Warning: Bookmark file corrupted, starting fresh: %v%s\n", ui.ColorYellow, err, ui.ColorReset)
+			e.Bookmarks = make(map[string]string)
+		}
 	}
 }
 
@@ -616,6 +777,11 @@ func (e *Engine) saveHistory() {
 	copy(e.PrevPath, e.Path)
 }
 
+// doRandom displays a random verse from anywhere in the Bible.
+// Optionally narrates the verse using text-to-speech if speak is true.
+//
+// Parameters:
+//   - speak: If true, narrates the verse using platform-specific TTS
 func (e *Engine) doRandom(speak bool) {
 	testaments := []string{"OT", "NT"}
 	tKey := testaments[rand.Intn(2)]
@@ -668,6 +834,8 @@ func (e *Engine) speak(text string) {
 	}
 }
 
+// doStats displays statistics about the Bible database including
+// total number of books, chapters, verses, and version information.
 func (e *Engine) doStats() {
 	otBooks := len(e.DB.OT)
 	ntBooks := len(e.DB.NT)
@@ -696,6 +864,8 @@ func (e *Engine) doStats() {
 	fmt.Println()
 }
 
+// printHelp displays comprehensive help documentation for all available commands.
+// Shows command syntax, descriptions, and usage examples organized by category.
 func (e *Engine) printHelp() {
 	fmt.Println()
 	fmt.Println(ui.ColorCyan + "╔══════════════════════════════════════════════════════════════╗")

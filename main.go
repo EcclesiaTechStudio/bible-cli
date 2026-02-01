@@ -19,17 +19,23 @@ func main() {
 		return
 	}
 
-	// 2. Initialize Engine
+	// 2. Validate Database Integrity
+	if err := model.ValidateDatabase(db); err != nil {
+		fmt.Printf("%sCRITICAL: Database validation failed: %v%s\n", ui.ColorRed, err, ui.ColorReset)
+		return
+	}
+
+	// 3. Initialize Engine
 	app := shell.New(db)
 
-	// 3. Command Line Args Mode
+	// 4. Command Line Args Mode
 	if len(os.Args) > 1 {
 		fullCommand := strings.Join(os.Args[1:], " ")
 		app.RunCommand(fullCommand)
 		return
 	}
 
-	// 4. Interactive Mode
+	// 5. Interactive Mode
 	scanner := bufio.NewScanner(os.Stdin)
 	ui.PrintHeader()
 

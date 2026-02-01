@@ -1,3 +1,5 @@
+// Package ui provides user interface utilities for the Bible CLI application.
+// It handles console output formatting, ANSI color codes, and display helpers.
 package ui
 
 import (
@@ -6,18 +8,22 @@ import (
 	"strconv"
 )
 
-// ANSI Colors
+// ANSI color codes for terminal output formatting.
+// These constants are used throughout the application to provide
+// colorized output for better readability and user experience.
 const (
-	ColorReset  = "\033[0m"
-	ColorGreen  = "\033[32m"
-	ColorBlue   = "\033[34m"
-	ColorYellow = "\033[33m"
-	ColorCyan   = "\033[36m"
-	ColorRed    = "\033[31m"
-	ColorGray   = "\033[90m"
-	ColorBold   = "\033[1m"
+	ColorReset  = "\033[0m" // Reset all formatting
+	ColorGreen  = "\033[32m" // Used for prompts and success messages
+	ColorBlue   = "\033[34m" // Used for directories and paths
+	ColorYellow = "\033[33m" // Used for verse numbers and highlights
+	ColorCyan   = "\033[36m" // Used for headers and section titles
+	ColorRed    = "\033[31m" // Used for error messages
+	ColorGray   = "\033[90m" // Used for secondary text and hints
+	ColorBold   = "\033[1m"  // Used for emphasis
 )
 
+// PrintHeader clears the screen and displays the welcome banner for the Bible CLI.
+// This is called once when the interactive shell starts.
 func PrintHeader() {
 	fmt.Print("\033[H\033[2J")
 	fmt.Println(ColorCyan + "╔══════════════════════════════════════╗")
@@ -28,7 +34,13 @@ func PrintHeader() {
 	fmt.Println()
 }
 
-// GetSortedKeys is a generic helper used by UI and Logic
+// GetSortedKeys returns a sorted slice of keys from a map.
+// It uses numeric sorting for numeric keys (e.g., chapter/verse numbers)
+// and alphabetical sorting for non-numeric keys (e.g., book names).
+//
+// For example:
+//   - Chapter numbers: "1", "2", "10" → sorted as [1, 2, 10] not ["1", "10", "2"]
+//   - Book names: "Genesis", "Matthew" → sorted alphabetically
 func GetSortedKeys[V any](m map[string]V) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
