@@ -164,7 +164,7 @@ func (e *Engine) RunCommand(input string) {
 	case "stats":
 		e.doStats()
 	case "version", "--version", "-v":
-		fmt.Printf("Bible CLI %sv1.3.0%s\n", ui.ColorGreen, ui.ColorReset)
+		fmt.Printf("Bible CLI %sv1.3.1%s\n", ui.ColorGreen, ui.ColorReset)
 	case "help":
 		e.printHelp()
 	case "clear", "cls":

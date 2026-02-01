@@ -119,7 +119,7 @@ func TestVersionCommand(t *testing.T) {
 	if !strings.Contains(output, "Bible CLI") {
 		t.Error("Version command should show 'Bible CLI'")
 	}
-	if !strings.Contains(output, "v1.3.0") {
+	if !strings.Contains(output, "v1.3.1") {
 		t.Error("Version command should show version number")
 	}
 
